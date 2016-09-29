@@ -34,6 +34,16 @@
 sample.training.data <- data.frame(x=c(0.5,0.6), y=c(0.4,0.3), category=c(1,2))
 
 exemplar.memory.limited <- function(training.data, x.val, y.val, target.category, sensitivity, decay.rate){
+  current.row <- 1
+  for(i in training.data){
+    training.data$row[current.row] <- current.row
+    j <- 1
+    while(j <= current.row){
+      training.data$weight[j] <- 1*(decay.rate^(current.row - training.data$row[j]))
+      j <- j + 1
+    }
+    current.row <- current.row + 1
+  }
   return(NA)
 }
 
