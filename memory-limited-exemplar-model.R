@@ -34,18 +34,23 @@
 sample.training.data <- data.frame(x=c(0.5,0.6), y=c(0.4,0.3), category=c(1,2))
 
 exemplar.memory.limited <- function(training.data, x.val, y.val, target.category, sensitivity, decay.rate){
-  current.row <- 1
-  for(i in training.data){
-    training.data$row[current.row] <- current.row
+    #taken from: http://stackoverflow.com/questions/28556658/why-does-an-empty-dataframe-fail-an-is-null-test
+    if(is.data.frame(training.data) && nrow(training.data)==0){
+      return(.5)
+    }
+  else{
+    current.row <- length(training.data) + 1
     j <- 1
-    while(j <= current.row){
-      training.data$weight[j] <- 1*(decay.rate^(current.row - training.data$row[j]))
+    while(j < current.row)){
+      training.data$weight[j] <- 1*(decay.rate^(current.row - j))
+      training.data$dis[j] <- sqrt(abs(x.val - training.data$x[j])^2 + abs(y.val - training.data$y[j])^2)
+      training.data$sim[j] <- exp(-sensitivity * training.data$dis[j])
+      training.data$weightedsim[j] <- training.data$sim[j] * training.data$weight[j]
       j <- j + 1
     }
-    current.row <- current.row + 1
-  }
-  return(NA)
-}
+  probability <- sum(training.data$weightedsim) / sum(training.data$sim)
+  return(probability)}}
+
 
 # Once you have the model implemented, write the log-likelihood function for a set of data.
 # The set of data for the model will look like this:
@@ -57,18 +62,41 @@ sample.data.set <- data.frame(x=c(0.5,0.6,0.4,0.5,0.3), y=c(0.4,0.3,0.6,0.4,0.5)
 # It also means that you have to do a little work to separate the training and test data for each trial.
 # If the subject is on trial 4 of the sample.data.set then the training data will be:
 
-sample.data.set[0:3,]
-
+is.null(sample.data.set[0:0,])
+is.data.frame(sample.data.set[0:0,]) && nrow(sample.data.set[0:0,])==0
 # and the test item will be
 
-sample.data.set[4,]
+sample.data.set[4,]$category
+
+exemplar.memory.limited(sample.data.set[0:0,], sample.data.set[1,]$x, sample.data.set[1,]$y, sample.data.set[1,]$category, .5, .5)
+exemplar.memory.limited(sample.data.set[0:1,], sample.data.set[2,]$x, sample.data.set[2,]$y, sample.data.set[2,]$category, .5, .5)
+exemplar.memory.limited(sample.data.set[0:2,], sample.data.set[3,]$x, sample.data.set[3,]$y, sample.data.set[3,]$category, .5, .5)
+exemplar.memory.limited(sample.data.set[0:3,], sample.data.set[4,]$x, sample.data.set[4,]$y, sample.data.set[4,]$category, .5, .5)
+exemplar.memory.limited(sample.data.set[0:4,], sample.data.set[5,]$x, sample.data.set[5,]$y, sample.data.set[5,]$category, .5, .5)
 
 # So, you need to treat each row of all.data as a test item, and find the training set for it
 # to give to your model. It may be easier to do this with a for loop than mapply(), though it
 # is certainly possible with both. (For mapply, pass it the row number that you are on...)
 
 # Don't forget that decay rate should be between 0 and 1, and that sensitivity should be > 0.
-
+length(sample.data.set)
 exemplar.memory.log.likelihood <- function(all.data, sensitivity, decay.rate){
+  row.index <- 0
+  c.row <- 1
+  for(i in all.data){
+    all.data$probability <- exemplar.memory.limited(all.data[0:row.index,], all.data[c.row,]$x, all.data[c.row,]$y, all.data[c.row,]$category, .5, .5)
+    row.index <- row.index + 1
+    c.row <- c.row + 1
+  }
+  
+  all.data$likelihood <- mapply(function(response, prob)
+  {
+    if(response == T){return(prob)}
+    else {return(1-prob)}
+  },
+  all.data$correct, all.data$probability)
+
+  loglikelihood <- sum(log(all.data$likelihood))
   return(NA)
 }
+exemplar.memory.log.likelihood(sample.data.set, .5, .5)
